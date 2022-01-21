@@ -237,6 +237,7 @@ pub struct WalkDir {
 
 struct WalkDirOptions {
     follow_links: bool,
+    follow_root_link: bool,
     yield_link_on_error: bool,
     max_open: usize,
     min_depth: usize,
@@ -288,6 +289,7 @@ impl WalkDir {
         WalkDir {
             opts: WalkDirOptions {
                 follow_links: false,
+                follow_root_link: true,
                 yield_link_on_error: false,
                 max_open: 10,
                 min_depth: 0,
@@ -343,6 +345,17 @@ impl WalkDir {
     /// [`DirEntry`]: struct.DirEntry.html
     pub fn follow_links(mut self, yes: bool) -> Self {
         self.opts.follow_links = yes;
+        self
+    }
+
+    /// Always follow the root if it is a symbolic link. By default, this is
+    /// enabled.
+    ///
+    /// When `yes` is `true`, and the root path is a symbolic link, it will
+    /// always be followed as if [`follow_links`] were enabled, even if it that
+    /// is `false`.
+    pub fn follow_root_link(mut self, yes: bool) -> Self {
+        self.opts.follow_root_link = yes;
         self
     }
 
@@ -863,7 +876,10 @@ impl IntoIter {
             } else {
                 itry!(self.push(&dent));
             }
-        } else if dent.depth() == 0 && dent.file_type().is_symlink() {
+        } else if dent.depth() == 0
+            && dent.file_type().is_symlink()
+            && self.opts.follow_root_link
+        {
             // As a special case, if we are processing a root entry, then we
             // always follow it even if it's a symlink and follow_links is
             // false. We are careful to not let this change the semantics of
